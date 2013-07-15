@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Haydn String Quartets</title>
+<style>
+html {
+    height: 100%;
+}
+body {
+    height: 100%;
+    font: 14px "HelveticaNeue-UltraLight", "Helvetica Neue Light", "Helvetica Neue", 
+  Helvetica, Arial, "Lucida Grande", sans-serif;
+}
+#container {
+    position: relative;
+    padding-top: 70px;
+    padding-left: 40px;
+    padding-right: 40px;
+    width: 900px;
+    margin: auto;
+    border-left: 1px solid #eee;
+    border-right: 1px solid #eee;
+    height: 100%;
+    
+}
+h1.title {
+    text-align: center;
+    padding-bottom: 10px;
+    margin: 0px;
+    font-size: 64px;
+    line-height: 64px;
+    font-weight: normal;
+}
+
+#chart-container{
+    position: absolute;
+    top: 180px;
+    left: 140px;
+}
+#chart {
+    width: 350px;
+    height: 350px;
+}
+#controls{
+    position: absolute;
+    top: 330px;
+    text-align: center;
+    width:100%;
+}
+#listing {
+    position: absolute;
+    top: 180px;
+    right: 160px;
+    font-size: 10pt;
+    float: right;
+    font-size: 10px;
+    font-style: italic;
+}
+ul {
+    list-style-type: none;
+}
+li {
+    padding-top: 8px;
+}
+a {
+    padding: 5px;
+    text-decoration: none;
+    color: #222;
+}
+a:hover {
+    color: #e11;
+}
+.active {
+    font-weight: bold;
+}
+.inactive {
+    font-weight: normal;
+    color: #aaa;
+}
+</style>
+</head>
+<body>
+<div id="container">
+    <h1 class="title">HAYDN STRING QUARTETS</h1>
+    <div id="chart-container">
+        <div id="chart"></div>
+        <div id="controls">
+            <a href="#" id="major-link" class="active">major</a>
+            <a href="#" id="minor-link" class="inactive">minor</a>
+        </div>
+    </div>
+    <div id="listing">
+        <ul>
+        </ul>
+    </div>
+</div>
+
+<script src="../lib/d3.v3.min.js"></script>
+<script>
+
+var keys = {
+    "major": ["C","G","D","A","E","B","G♭","D♭","A♭","E♭","B♭","F"],
+    "minor": ["a","e","b","f♯","c♯","g♯","e♭","b♭","f","c","g","d"]
+};
+
+function nice_key(key, is_major) {
+    var key_map = {'#': '♯', 'b': '♭'};
+    var letter = is_major ? key[0] : key[0].toLowerCase();
+    if (key.length > 1) {
+        return letter + key_map[key[1]];
+    } else {
+        return letter;
+    }
+}
+
+var width = 350,
+    height = 350,
+    outerRadius = Math.min(width, height) * .5,
+    innerRadius = outerRadius * 0.6;
+
+var color_major = d3.scale.linear()
+    .domain([0, 6, 11])
+    .range(["white", "orange", "red"]);
+
+var color_minor = d3.scale.linear()
+    .domain([0, 11])
+    .range(["white", "blue"]);
+
+var arc_radius = d3.scale.linear()
+    .domain([0, 11])
+    .range([innerRadius, outerRadius]);
+
+var svg = d3.select("#chart").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+  .append("g")
+    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
+
+var halfArc = 2 * Math.PI / 12 / 2;
+var pie = d3.layout.pie()
+    .value(function(d) {return 1;}) // this is just so we get equal numbers
+    .sort(function(a, b) {return a - b;})
+    .startAngle(-halfArc)
+    .endAngle(2*Math.PI - halfArc)
+
+var arc = d3.svg.arc().innerRadius(innerRadius *0.6).outerRadius(innerRadius);
+
+var arcs = svg.selectAll("g")     
+        .data(pie(d3.range(12))) 
+        .enter()
+            .append("svg:g")
+                .attr("class", "slice");
+
+var slices = arcs.append("path")
+    .style("fill", function(d, index) { return "#fff"; })
+    .style("stroke", function(d, index) { return "#eee";})
+    .attr("d", d3.svg.arc().innerRadius(innerRadius).outerRadius(innerRadius));
+
+var labels = arcs.append("text")
+            .attr("transform", function(d) {
+                return "translate(" + arc.centroid(d) + ")";
+            })
+            .attr("dy", ".35em")
+            .attr("text-anchor", "middle")
+            .text(function(d, i) { return keys["major"][i]; });
+
+function renderList(list) {
+    var quartets = d3.select("ul").selectAll("li")
+        .data(list)
+    quartets.enter().append("li")
+            .text(function(d) { return d; })
+    quartets.exit().remove();
+    quartets.text(function(d) { return d; });
+}
+
+function redraw(mode) {
+    var key_set = quartets[mode];
+    var color_func = mode == "major" ? color_major : color_minor;
+
+    slices.transition().duration(400)
+        .style("fill", function(d, i) {
+            return color_func(key_set[keys[mode][i]].length);
+        })
+        .attr("d", function(d, i) {
+            return d3.svg.arc()
+                .innerRadius(innerRadius)
+                .outerRadius(arc_radius(key_set[keys[mode][i]].length))
+                .startAngle(d.startAngle)
+                .endAngle(d.endAngle)(); 
+            });
+
+    slices
+        .on("mouseover", function(d, i){
+            d3.select(this).style("stroke-width", 3);
+            d3.select(this).style("stroke", "rgb(212,255, 172)");
+            var names = key_set[keys[mode][i]].map(function(d) {
+                return d.name;
+            });
+            renderList(names);
+        }).on("mouseout", function(d, i) {
+            d3.select(this).style("stroke-width", 1);
+            d3.select(this).style("stroke", "#eee");
+            renderList([]);
+        });
+
+
+    labels.text(function(d, i) { return keys[mode][i]; }); 
+    renderList([]);
+}
+
+d3.select("#major-link").on("click", function() {
+    d3.select(this).attr("class", "active");
+    d3.select("#minor-link").attr("class", "inactive");
+    redraw("major");
+});
+d3.select("#minor-link").on("click", function() {
+    d3.select(this).attr("class", "active");
+    d3.select("#major-link").attr("class", "inactive");
+    redraw("minor");
+});
+
+var quartets = {};
+
+d3.csv("quartets.csv")
+    .row(function(d) { return {"mode": d.mode, "letter": nice_key(d.letter, d.mode == 'major'), "name": d.name };})
+    .get(function(error, rows) {
+        quartets = d3.nest()
+                .key(function(d) { return d.mode;})
+                .key(function(d) { return d.letter;})
+                .map(rows);
+
+        // add the null data
+        for (var mode in keys) {
+            keys[mode].forEach(function(key) {
+                if (quartets[mode][key] == undefined) {
+                    quartets[mode][key] = [];
+                }
+            });
+        }
+
+        setTimeout(function(){redraw("major");}, 1000);
+    });
+
+
+
+</script>
+</body>
+</html>
